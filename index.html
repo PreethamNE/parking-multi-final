@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Parking Monitor</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Poppins", "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #020617 50%, #1a1a2e 100%);
+      color: white;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background:
+        radial-gradient(circle at 20% 50%, rgba(29, 78, 216, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      padding: 40px 25px;
+      max-width: 1400px;
+      margin: auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 42px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      animation: slideInDown 0.6s ease-out;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .badge {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(29, 78, 216, 0.3);
+      animation: slideInRight 0.6s ease-out;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.07);
+      border-radius: 18px;
+      padding: 28px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 15px;
+      transition: all 0.3s;
+      animation: fadeInUp 0.6s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #cbd5f5;
+    }
+
+    .card .value {
+      font-size: 48px;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+
+    .blue { color: #60a5fa; }
+    .red { color: #f87171; }
+    .green { color: #4ade80; }
+
+    .bar-box {
+      background: rgba(255,255,255,0.07);
+      border-radius: 18px;
+      padding: 28px;
+      margin-bottom: 30px;
+    }
+
+    .bar {
+      width: 100%;
+      height: 24px;
+      background: rgba(30,41,59,0.5);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #4ade80);
+      width: 0%;
+    }
+
+    .camera-sections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 25px;
+      margin-top: 30px;
+    }
+
+    .camera-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border-radius: 20px;
+      padding: 30px 28px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 7px solid #1d4ed8;
+      transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 30px rgba(2,6,23,0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .camera-card::before {
+      content: '';
+      position: absolute;
+      top: -8%;
+      left: -12%;
+      width: 140%;
+      height: 56%;
+      background: linear-gradient(90deg, rgba(29,78,216,0.06), transparent 40%);
+      transform: rotate(-6deg);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .camera-card h3 { /* stronger header */
+      margin-top: 0;
+      color: #9bd3ff;
+      font-size: 22px;
+      font-weight: 800;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Stat item tweaks */
+    .camera-stats .stat-item .number {
+      font-size: 30px;
+      font-weight: 800;
+      color: #dbeffd;
+    }
+
+    /* Progress bar tweaks */
+    .progress-bar { height: 18px; border-radius: 14px; background: rgba(20,27,45,0.45); box-shadow: inset 0 3px 6px rgba(0,0,0,0.35); }
+    .progress-fill { height: 100%; border-radius: 14px; }
+    .progress-fill.occupied { background: linear-gradient(90deg, rgba(239,68,68,0.95), rgba(248,113,113,0.95)); box-shadow: 0 8px 28px rgba(239,68,68,0.12); }
+    .progress-fill.available { background: linear-gradient(90deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95)); box-shadow: 0 8px 28px rgba(34,197,94,0.12); }
+
+    /* Slot button styles */
+    .camera-slots { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; z-index: 1; }
+    .camera-slot { padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; text-align: center; border: 2px solid rgba(255,255,255,0.04); min-width:56px; background: rgba(255,255,255,0.02); transition: all 0.18s ease; }
+    .camera-slot.free { background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(74,222,128,0.06)); border-color: rgba(34,197,94,0.6); color: #a7ffcf; box-shadow: 0 6px 24px rgba(34,197,94,0.06); }
+    .camera-slot.full { background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(248,113,113,0.04)); border-color: rgba(239,68,68,0.6); color: #ffd6d6; box-shadow: 0 6px 24px rgba(239,68,68,0.06); }
+
+    footer {
+      text-align: center;
+      opacity: 0.7;
+      margin-top: 50px;
+      font-size: 13px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    #time {
+      font-weight: 700;
+      color: #60a5fa;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="top-bar">
+    <h1>🚗 Smart Parking Monitor</h1>
+    <div class="badge">Source: Firebase</div>
+  </div>
+
+  <!-- Parking layout image for new visitors (moved to top) -->
+  <div class="bar-box" style="margin-bottom:20px;">
+    <h3>🗺️ Parking Layout</h3>
+    <div style="text-align:center; margin-top:12px;">
+      <!-- Place the exact image file at assets/parking_layout.png -->
+      <img id="parking-layout-img" src="layout.jpeg" alt="Parking Layout" 
+           style="max-width:100%; height:auto; border:2px solid rgba(255,255,255,0.06); border-radius:8px; box-shadow: 0 8px 30px rgba(2,6,23,0.35); background:#fff;" />
+    </div>
+    <p style="text-align:center; opacity:0.8; margin-top:8px; font-size:13px;">Parking layout (for new visitors)</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div>
+        <h3>Total Slots</h3>
+        <div id="total" class="value blue">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div>
+        <h3>Occupied</h3>
+        <div id="occupied" class="value red">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div>
+        <h3>Available</h3>
+        <div id="free" class="value green">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar-box">
+    <h3>📊 Overall Occupancy Rate</h3>
+    <div class="bar">
+      <div id="fill" class="fill"></div>
+    </div>
+    <p id="percent">0% Full</p>
+  </div>
+
+  <div class="bar-box">
+    <h3>🅿️ Parking Rows</h3>
+  </div>
+
+  <div id="rowContainer" class="camera-sections"></div>
+
+  
+
+  <footer>
+    Last Update: <span id="time">--</span>
+  </footer>
+
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBSU63JsBOrEVF4i3znoOkU9CBbK8dujRg",
+    authDomain: "smart-parking-bfefe.firebaseapp.com",
+    databaseURL: "https://smart-parking-bfefe-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "smart-parking-bfefe"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const cameraData = {};
+
+  // ---------------- SUMMARY CARDS ----------------
+  function updateSummaryCards() {
+    let totalSlots = 0;
+    let totalOccupied = 0;
+    let totalFree = 0;
+
+    Object.values(cameraData).forEach(cam => {
+      if (cam && cam.total_slots) {
+        totalSlots += cam.total_slots;
+        totalOccupied += cam.occupied;
+        totalFree += cam.free;
+      }
+    });
+
+    document.getElementById("total").innerText = totalSlots;
+    document.getElementById("occupied").innerText = totalOccupied;
+    document.getElementById("free").innerText = totalFree;
+
+    const percent = totalSlots > 0 ? ((totalOccupied / totalSlots) * 100).toFixed(1) : 0;
+    document.getElementById("fill").style.width = percent + "%";
+    document.getElementById("percent").innerText = percent + "% Full";
+  }
+
+  // ---------------- ROW CARD (LIKE IMAGE) ----------------
+  function updateRowCard(rowName, cam1Num, cam2Num) {
+    const container = document.getElementById("rowContainer");
+    let card = document.getElementById(`row-${rowName}`);
+
+    if (!card) {
+      card = document.createElement("div");
+      card.id = `row-${rowName}`;
+      card.className = "camera-card";
+      container.appendChild(card);
+    }
+
+    const cam1 = cameraData[cam1Num] || {};
+    const cam2 = cameraData[cam2Num] || {};
+
+    const totalSlots = (cam1.total_slots || 0) + (cam2.total_slots || 0);
+    const occupied = (cam1.occupied || 0) + (cam2.occupied || 0);
+    const available = (cam1.free || 0) + (cam2.free || 0);
+
+    const occPercent = totalSlots > 0 ? ((occupied / totalSlots) * 100).toFixed(1) : 0;
+    const freePercent = totalSlots > 0 ? ((available / totalSlots) * 100).toFixed(1) : 0;
+
+    const occupiedSlots = [
+      ...(cam1.occupied_slots || []),
+      ...(cam2.occupied_slots || [])
+    ];
+
+    const availableSlots = [
+      ...(cam1.available_slots || []),
+      ...(cam2.available_slots || [])
+    ];
+
+    card.innerHTML = `
+      <h3>🎥 Row ${rowName} (Camera ${cam1Num} & ${cam2Num})</h3>
+
+      <div class="camera-stats">
+        <div class="stat-item">
+          <div class="label">Total Slots</div>
+          <div class="number blue">${totalSlots}</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Occupied</div>
+          <div class="number red">${occupied}</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">Available</div>
+          <div class="number green">${available}</div>
+        </div>
+      </div>
+
+      <div class="progress-wrapper">
+        <div class="progress-label">
+          <span>Occupied Slots</span>
+          <span>${occPercent}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill occupied" style="width:${occPercent}%"></div>
+        </div>
+      </div>
+
+      <div class="progress-wrapper">
+        <div class="progress-label">
+          <span>Available Slots</span>
+          <span>${freePercent}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill available" style="width:${freePercent}%"></div>
+        </div>
+      </div>
+
+      <div class="camera-slots">
+        ${occupiedSlots.map(s => `<div class="camera-slot full">S${s}</div>`).join("")}
+        ${availableSlots.map(s => `<div class="camera-slot free">S${s}</div>`).join("")}
+      </div>
+    `;
+  }
+
+  // ---------------- FIREBASE LISTENERS ----------------
+  for (let i = 1; i <= 4; i++) {
+    db.ref(`parking/cam${i}`).on("value", snap => {
+      const d = snap.val();
+      if (!d) return;
+
+      cameraData[i] = d;
+
+      updateSummaryCards();
+
+      updateRowCard("A", 1, 2);
+      updateRowCard("B", 3, 4);
+
+      document.getElementById("time").innerText =
+        new Date(d.timestamp * 1000).toLocaleTimeString();
+    });
+  }
+</script>
+
+
+</body>
+</html>
